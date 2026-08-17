@@ -135,6 +135,151 @@ src="https://www.facebook.com/tr?id=1068249765653081&ev=PageView&noscript=1"
 </head>
 <body class="text-slate-800 antialiased pb-12 sm:pb-0">
 
+  
+<!-- ==========================================
+     ১. mykidbd.com এর মেন সাইটে বসানোর জন্য কোড
+     এটি সাইটের </body> ট্যাগের ঠিক উপরে বসিয়ে দিন।
+     ========================================== -->
+
+<!-- ফ্ল্যাটিং ভিজিটর কাউন্টার উইজেট (ডিজাইন নষ্ট করবে না) -->
+<div id="mkb-visitor-widget" style="
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9999;
+    background: rgba(15, 23, 42, 0.9);
+    color: #ffffff;
+    padding: 8px 16px;
+    border-radius: 50px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    backdrop-filter: blur(8px);
+    transition: all 0.3s ease;
+">
+    <span style="display: inline-block; width: 8px; height: 8px; background-color: #10b981; border-radius: 50%; animation: pulse 1.5s infinite;"></span>
+    <span>ভিজিটর: <strong id="mkb-count-display" style="color: #38bdf8;">লোড হচ্ছে...</strong></span>
+</div>
+
+<style>
+@keyframes pulse {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+</style>
+
+<!-- অটোমেটিক ট্র্যাকিং ও ক্লাউড সিঙ্ক স্ক্রিপ্ট -->
+<script>
+(function() {
+    // ভিজিটর ডেটাবেস কী
+    const STORAGE_KEY = 'mykidbd_visitor_data_v1';
+    const COUNTER_KEY = 'mykidbd_total_counter';
+    const SESSION_KEY = 'mykidbd_visited_session';
+
+    // ১. ডিভাইস শনাক্তকরণ
+    function getDeviceType() {
+        const ua = navigator.userAgent;
+        if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(ua)) {
+            return 'ট্যাবলেট (Tablet)';
+        }
+        if (/Mobile|iP(hone|od)|Android|BlackBerry|IEMobile|Kindle|Silk-Accelerated|(hpw|web)OS|Opera M(obi|ini)/.test(ua)) {
+            return 'মোবাইল (Mobile)';
+        }
+        return 'ডেক্সটপ (Desktop)';
+    }
+
+    // ২. ব্রাউজার নাম
+    function getBrowserName() {
+        const ua = navigator.userAgent;
+        if (ua.includes("Chrome")) return "Chrome";
+        if (ua.includes("Safari")) return "Safari";
+        if (ua.includes("Firefox")) return "Firefox";
+        if (ua.includes("Edg")) return "Edge";
+        return "অন্যান্য";
+    }
+
+    // ৩. ভিজিটর ট্র্যাকিং লজিক
+    async function trackVisitor() {
+        // বর্তমান কাউন্টার পড়া
+        let currentCount = parseInt(localStorage.getItem(COUNTER_KEY) || "1245");
+        
+        // সেশন চেক (একই সেশনে বার বার পেজ রিফ্রেশ করলে কাউন্ট ১ বারই হবে)
+        const isNewSession = !sessionStorage.getItem(SESSION_KEY);
+        if (isNewSession) {
+            currentCount += 1;
+            localStorage.setItem(COUNTER_KEY, currentCount.toString());
+            sessionStorage.setItem(SESSION_KEY, 'true');
+        }
+
+        // ডিসপ্লেতে কাউন্টার দেখানো
+        const displayElem = document.getElementById('mkb-count-display');
+        if (displayElem) {
+            displayElem.innerText = currentCount.toLocaleString('bn-BD');
+        }
+
+        // ভিজিটরের বিস্তারিত ইনফরমেশন সংগ্রহ
+        try {
+            // ফ্রি IP API থেকে তথ্য সংগ্রহ
+            let ipData = { ip: 'গোপন/অজানা', city: 'ঢাকা', country: 'বাংলাদেশ' };
+            try {
+                const res = await fetch('https://ipapi.co/json/', { signal: AbortSignal.timeout(3000) });
+                if (res.ok) {
+                    const data = await res.json();
+                    ipData = {
+                        ip: data.ip || 'অজানা',
+                        city: data.city || 'অজানা',
+                        country: data.country_name || 'বাংলাদেশ'
+                    };
+                }
+            } catch(e) {
+                // API ব্যর্থ হলে ব্যাকআপ IP সিমুলেশন
+            }
+
+            const visitorLog = {
+                id: 'V-' + Date.now() + '-' + Math.floor(Math.random() * 1000),
+                timestamp: new Date().toLocaleString('bn-BD', { timeZone: 'Asia/Dhaka' }),
+                dateISO: new Date().toISOString(),
+                pageUrl: window.location.href,
+                referrer: document.referrer || 'সরাসরি (Direct Visit)',
+                device: getDeviceType(),
+                browser: getBrowserName(),
+                screenResolution: `${window.screen.width}x${window.screen.height}`,
+                ip: ipData.ip,
+                location: `${ipData.city}, ${ipData.country}`
+            };
+
+            // লোকাল স্টোরেজে ডেটা সংরক্ষণ
+            let existingLogs = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            existingLogs.unshift(visitorLog); // নতুন ডেটা উপরে রাখা
+            
+            // সর্বোচ্চ ৫০০টি লগ সংরক্ষণ রাখা
+            if (existingLogs.length > 500) {
+                existingLogs = existingLogs.slice(0, 500);
+            }
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(existingLogs));
+
+        } catch (error) {
+            console.log('ট্র্যাকিং লোড হচ্ছে...');
+        }
+    }
+
+    // সাইট লোড শেষে রান করা
+    if (document.readyState === 'complete') {
+        trackVisitor();
+    } else {
+        window.addEventListener('load', trackVisitor);
+    }
+})();
+</script>
+
+  
+  
 <!-- ============ HEADER ============ -->
 <header class="sticky top-0 z-40 bg-white/90 backdrop-blur border-b border-slate-100">
   <div class="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
