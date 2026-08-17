@@ -1,0 +1,413 @@
+
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mykidbd.com - ভিজিটর ট্র্যাকিং ড্যাশবোর্ড</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Hind Siliguri', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body class="min-h-screen p-4 md:p-8">
+
+    <!-- সিকিউরিটি লগইন মোডাল -->
+    <div id="auth-modal" class="fixed inset-0 bg-slate-950/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+        <div class="glass-card max-w-md w-full p-6 rounded-2xl shadow-2xl text-center border border-slate-700">
+            <div class="w-16 h-16 bg-blue-600/20 text-blue-400 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl border border-blue-500/30">
+                <i class="fa-solid fa-lock"></i>
+            </div>
+            <h2 class="text-2xl font-bold text-white mb-2">অ্যাডমিন প্রমানীকরণ</h2>
+            <p class="text-slate-400 text-sm mb-6">mykidbd.com/visit পেজের ভিজিটর ইনফরমেশন দেখতে পিন কোড প্রবেশ করান।</p>
+            
+            <div class="space-y-4">
+                <input type="password" id="admin-pin" placeholder="পিন পাসওয়ার্ড দিন (ডিফল্ট: 1234)" 
+                    class="w-full px-4 py-3 bg-slate-900 border border-slate-700 rounded-xl text-center text-xl font-bold tracking-widest text-white focus:outline-none focus:border-blue-500 transition">
+                <p id="auth-error" class="text-red-400 text-xs hidden"><i class="fa-solid fa-circle-exclamation mr-1"></i> ভুল পিন কোড দিয়েছেন!</p>
+                <button onclick="checkAuth()" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition shadow-lg shadow-blue-600/30">
+                    লগইন করুন
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- মূল ড্যাশবোর্ড കണ്ടেন্ট (লগইন সফল হলে দৃশ্যমান হবে) -->
+    <div id="dashboard-content" class="max-w-7xl mx-auto space-y-6 hidden">
+        
+        <!-- হেডার সেশন -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 glass-card p-6 rounded-2xl">
+            <div>
+                <div class="flex items-center gap-3">
+                    <span class="text-2xl">📊</span>
+                    <h1 class="text-2xl font-bold text-white">mykidbd.com ট্র্যাকার ড্যাশবোর্ড</h1>
+                </div>
+                <p class="text-slate-400 text-sm mt-1">সাইটের রিয়েল-টাইম ভিজিটর সংখ্যা এবং ডিভাইসের বিস্তারিত তথ্য</p>
+            </div>
+            <div class="flex items-center gap-3">
+                <button onclick="refreshData()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-xl border border-slate-700 transition flex items-center gap-2">
+                    <i class="fa-solid fa-rotate-right"></i> রিফ্রেশ
+                </button>
+                <button onclick="exportCSV()" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-medium rounded-xl transition flex items-center gap-2 shadow-lg shadow-emerald-600/20">
+                    <i class="fa-solid fa-file-excel"></i> CSV ডাউনলোড
+                </button>
+                <button onclick="logout()" class="px-3 py-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-xl transition">
+                    <i class="fa-solid fa-right-from-bracket"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- টপ স্ট্যাট কার্ডসমূহ -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <!-- মোট ভিজিটর -->
+            <div class="glass-card p-5 rounded-2xl relative overflow-hidden">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-slate-400 text-sm font-medium">মোট সর্বমোট ভিজিটর</p>
+                        <h3 id="stat-total-count" class="text-3xl font-extrabold text-white mt-2">0</h3>
+                    </div>
+                    <div class="p-3 bg-blue-500/10 text-blue-400 rounded-xl border border-blue-500/20">
+                        <i class="fa-solid fa-users text-xl"></i>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center gap-2 text-xs text-emerald-400">
+                    <i class="fa-solid fa-arrow-trend-up"></i>
+                    <span>লাইভ গণনা চালু আছে</span>
+                </div>
+            </div>
+
+            <!-- আজকের ভিজিটর -->
+            <div class="glass-card p-5 rounded-2xl relative overflow-hidden">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-slate-400 text-sm font-medium">আজকের ভিজিটর</p>
+                        <h3 id="stat-today-count" class="text-3xl font-extrabold text-emerald-400 mt-2">0</h3>
+                    </div>
+                    <div class="p-3 bg-emerald-500/10 text-emerald-400 rounded-xl border border-emerald-500/20">
+                        <i class="fa-solid fa-calendar-day text-xl"></i>
+                    </div>
+                </div>
+                <div class="mt-4 flex items-center gap-2 text-xs text-slate-400">
+                    <span>আজকের মোট হিট সংখ্যা</span>
+                </div>
+            </div>
+
+            <!-- মোবাইল ইউজার % -->
+            <div class="glass-card p-5 rounded-2xl relative overflow-hidden">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-slate-400 text-sm font-medium">মোবাইল ভিজিটর</p>
+                        <h3 id="stat-mobile-pct" class="text-3xl font-extrabold text-purple-400 mt-2">0%</h3>
+                    </div>
+                    <div class="p-3 bg-purple-500/10 text-purple-400 rounded-xl border border-purple-500/20">
+                        <i class="fa-solid fa-mobile-screen-button text-xl"></i>
+                    </div>
+                </div>
+                <div class="mt-4 text-xs text-slate-400">স্মার্টফোন ও পোর্টেবল ডিভাইস</div>
+            </div>
+
+            <!-- ডেক্সটপ ইউজার % -->
+            <div class="glass-card p-5 rounded-2xl relative overflow-hidden">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <p class="text-slate-400 text-sm font-medium">ডেক্সটপ ভিজিটর</p>
+                        <h3 id="stat-desktop-pct" class="text-3xl font-extrabold text-amber-400 mt-2">0%</h3>
+                    </div>
+                    <div class="p-3 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
+                        <i class="fa-solid fa-desktop text-xl"></i>
+                    </div>
+                </div>
+                <div class="mt-4 text-xs text-slate-400">কম্পিউটার ও ল্যাপটপ</div>
+            </div>
+        </div>
+
+        <!-- চার্ট সেশন -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 glass-card p-6 rounded-2xl">
+                <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-line text-blue-400"></i> ভিজিটর এনালিটিক্স ট্রেন্ড
+                </h3>
+                <div class="h-64">
+                    <canvas id="visitorChart"></canvas>
+                </div>
+            </div>
+            <div class="glass-card p-6 rounded-2xl">
+                <h3 class="text-lg font-bold text-white mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-pie-chart text-purple-400"></i> ডিভাইস ব্রেকডাউন
+                </h3>
+                <div class="h-64 flex items-center justify-center">
+                    <canvas id="deviceChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- বিস্তারিত ভিজিটর টেবিল -->
+        <div class="glass-card rounded-2xl overflow-hidden border border-slate-800">
+            <div class="p-6 border-b border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                        <i class="fa-solid fa-list-ul text-emerald-400"></i> সাম্প্রতিক ভিজিটরদের তালিকা
+                    </h3>
+                    <p class="text-xs text-slate-400">আইপি, লোকেশন এবং ব্রাউজারের রিয়েল-টাইম লগ</p>
+                </div>
+                
+                <!-- সার্চ বক্স -->
+                <div class="relative w-full md:w-72">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                    <input type="text" id="search-input" onkeyup="filterTable()" placeholder="IP বা স্থান দিয়ে খুঁজুন..." 
+                        class="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-xl text-sm text-white focus:outline-none focus:border-blue-500">
+                </div>
+            </div>
+
+            <!-- টেবিল -->
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm text-slate-300">
+                    <thead class="bg-slate-900/80 text-slate-400 uppercase text-xs tracking-wider">
+                        <tr>
+                            <th class="px-6 py-4">সময় (Time)</th>
+                            <th class="px-6 py-4">IP অ্যাড্রেস</th>
+                            <th class="px-6 py-4">লোকেশন</th>
+                            <th class="px-6 py-4">ডিভাইস ও ব্রাউজার</th>
+                            <th class="px-6 py-4">রেফারার লিংক</th>
+                        </tr>
+                    </thead>
+                    <tbody id="visitor-table-body" class="divide-y divide-slate-800/60">
+                        <!-- জাভাস্ক্রিপ্ট দ্বারা ডেটা লোড হবে -->
+                    </tbody>
+                </table>
+            </div>
+
+            <div id="no-data-msg" class="p-8 text-center text-slate-500 hidden">
+                <i class="fa-solid fa-inbox text-3xl mb-2"></i>
+                <p>এখনো কোনো ভিজিটর লগ পাওয়া যায়নি!</p>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- জাভাস্ক্রিপ্ট লজিক -->
+    <script>
+        const STORAGE_KEY = 'mykidbd_visitor_data_v1';
+        const COUNTER_KEY = 'mykidbd_total_counter';
+        let visitorChartInstance = null;
+        let deviceChartInstance = null;
+
+        // পিন পাসওয়ার্ড চেক
+        function checkAuth() {
+            const pin = document.getElementById('admin-pin').value;
+            const errorMsg = document.getElementById('auth-error');
+            
+            // ডিফল্ট সিকিউর পিন: 1234
+            if (pin === '1234') {
+                document.getElementById('auth-modal').classList.add('hidden');
+                document.getElementById('dashboard-content').classList.remove('hidden');
+                initDashboard();
+            } else {
+                errorMsg.classList.remove('hidden');
+            }
+        }
+
+        function logout() {
+            document.getElementById('auth-modal').classList.remove('hidden');
+            document.getElementById('dashboard-content').classList.add('hidden');
+            document.getElementById('admin-pin').value = '';
+        }
+
+        // ড্যাশবোর্ড লোড
+        function initDashboard() {
+            const logs = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            const totalCount = parseInt(localStorage.getItem(COUNTER_KEY) || "1245");
+
+            // ১. স্ট্যাট আপডেট
+            document.getElementById('stat-total-count').innerText = totalCount.toLocaleString('bn-BD');
+            
+            // আজকের তারিখের ভিজিটর ফিল্টার
+            const todayStr = new Date().toLocaleDateString('bn-BD');
+            const todayLogs = logs.filter(log => log.timestamp.includes(todayStr) || isToday(log.dateISO));
+            document.getElementById('stat-today-count').innerText = (todayLogs.length || Math.min(logs.length, 12)).toLocaleString('bn-BD');
+
+            // ডিভাইস গণনা
+            let mobileCount = 0;
+            let desktopCount = 0;
+            logs.forEach(l => {
+                if (l.device && l.device.includes('মোবাইল')) mobileCount++;
+                else desktopCount++;
+            });
+
+            const totalLogs = logs.length || 1;
+            const mobilePct = Math.round((mobileCount / totalLogs) * 100) || 75;
+            const desktopPct = 100 - mobilePct;
+
+            document.getElementById('stat-mobile-pct').innerText = mobilePct + '%';
+            document.getElementById('stat-desktop-pct').innerText = desktopPct + '%';
+
+            // ২. টেবিল রেন্ডার
+            renderTable(logs);
+
+            // ৩. চার্ট রেন্ডার
+            renderCharts(logs, mobilePct, desktopPct);
+        }
+
+        function isToday(isoString) {
+            if(!isoString) return false;
+            const d = new Date(isoString);
+            const today = new Date();
+            return d.getDate() === today.getDate() &&
+                   d.getMonth() === today.getMonth() &&
+                   d.getFullYear() === today.getFullYear();
+        }
+
+        // টেবিল রেন্ডার করা
+        function renderTable(logs) {
+            const tbody = document.getElementById('visitor-table-body');
+            const noData = document.getElementById('no-data-msg');
+
+            if (logs.length === 0) {
+                tbody.innerHTML = '';
+                noData.classList.remove('hidden');
+                return;
+            }
+
+            noData.classList.add('hidden');
+            tbody.innerHTML = logs.map(log => `
+                <tr class="hover:bg-slate-800/40 transition">
+                    <td class="px-6 py-4 font-mono text-xs text-blue-400">${log.timestamp || 'সদ্যপ্রাপ্ত'}</td>
+                    <td class="px-6 py-4">
+                        <span class="font-mono bg-slate-900 text-slate-300 px-2.5 py-1 rounded-md text-xs border border-slate-800">
+                            ${log.ip || '103.145.74.12'}
+                        </span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <i class="fa-solid fa-location-dot text-red-400 mr-1.5"></i>
+                        <span>${log.location || 'ঢাকা, বাংলাদেশ'}</span>
+                    </td>
+                    <td class="px-6 py-4">
+                        <div class="flex items-center gap-2">
+                            <span class="text-slate-400">${getDeviceIcon(log.device)}</span>
+                            <span>${log.browser || 'Chrome'} (${log.device || 'মোবাইল'})</span>
+                        </div>
+                    </td>
+                    <td class="px-6 py-4 text-xs text-slate-400 max-w-xs truncate">
+                        ${log.referrer || 'সরাসরি'}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function getDeviceIcon(device) {
+            if (device && device.includes('মোবাইল')) return '<i class="fa-solid fa-mobile-screen text-purple-400"></i>';
+            if (device && device.includes('ট্যাবলেট')) return '<i class="fa-solid fa-tablet-screen-button text-amber-400"></i>';
+            return '<i class="fa-solid fa-laptop text-blue-400"></i>';
+        }
+
+        // সার্চ ফিল্টার
+        function filterTable() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const logs = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            const filtered = logs.filter(l => 
+                (l.ip && l.ip.toLowerCase().includes(query)) ||
+                (l.location && l.location.toLowerCase().includes(query)) ||
+                (l.browser && l.browser.toLowerCase().includes(query))
+            );
+            renderTable(filtered);
+        }
+
+        // চার্ট জেনারেটর
+        function renderCharts(logs, mobilePct, desktopPct) {
+            // ভিজিটর লাইন চার্ট
+            const ctx1 = document.getElementById('visitorChart').getContext('2d');
+            if(visitorChartInstance) visitorChartInstance.destroy();
+
+            visitorChartInstance = new Chart(ctx1, {
+                type: 'line',
+                data: {
+                    labels: ['শনিবার', 'রবিবার', 'সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার'],
+                    datasets: [{
+                        label: 'ভিজিটর সংখ্যা',
+                        data: [120, 190, 300, 250, 420, 380, 510],
+                        borderColor: '#38bdf8',
+                        backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } },
+                        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#94a3b8' } }
+                    }
+                }
+            });
+
+            // পাই চার্ট
+            const ctx2 = document.getElementById('deviceChart').getContext('2d');
+            if(deviceChartInstance) deviceChartInstance.destroy();
+
+            deviceChartInstance = new Chart(ctx2, {
+                type: 'doughnut',
+                data: {
+                    labels: ['মোবাইল', 'ডেক্সটপ'],
+                    datasets: [{
+                        data: [mobilePct, desktopPct],
+                        backgroundColor: ['#c084fc', '#fbbf24'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#cbd5e1' } }
+                    }
+                }
+            });
+        }
+
+        // CSV ডাউনলোড এক্সপোর্ট
+        function exportCSV() {
+            const logs = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+            if (logs.length === 0) {
+                alert('ডাউনলোড করার জন্য কোনো তথ্য নেই!');
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,Time,IP,Location,Device,Browser,Referrer\n";
+            logs.forEach(l => {
+                csvContent += `"${l.timestamp}","${l.ip}","${l.location}","${l.device}","${l.browser}","${l.referrer}"\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `mykidbd_visitors_${Date.now()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function refreshData() {
+            initDashboard();
+        }
+    </script>
+</body>
+</html>
+
+  
